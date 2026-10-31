@@ -1,0 +1,34 @@
+# Environment & Python
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Node & Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Data & Persistence
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/models/*
+!data/models/.gitkeep
+data/checkpoints/*
+!data/checkpoints/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

@@ -1,0 +1,245 @@
+services:
+  # ==========================================
+  # 1. PostgreSQL - Hive Metastore Database
+  # ==========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: metastore_db
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hivepassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 2. Apache Kafka - KRaft Mode
+  # ==========================================
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      CLUSTER_ID: 4L622nShTUiBenA3heKdRw
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka_data:/tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 3. Hadoop HDFS - NameNode
+  # ==========================================
+  namenode:
+    image: apache/hadoop:3.3.6
+    container_name: namenode
+    hostname: namenode
+    user: root
+    command: ["/bin/bash", "-c", "mkdir -p /hadoop/dfs/name && [ ! -d /hadoop/dfs/name/current ] && hdfs namenode -format -force; hdfs namenode"]
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+      - ./hadoop/conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./hadoop/conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+    healthcheck:
+      test: ["CMD-SHELL", "hdfs dfsadmin -report || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 4. Hadoop HDFS - DataNode
+  # ==========================================
+  datanode:
+    image: apache/hadoop:3.3.6
+    container_name: datanode
+    user: root
+    command: ["/bin/bash", "-c", "mkdir -p /hadoop/dfs/data && hdfs datanode"]
+    ports:
+      - "9864:9864"
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+      - ./hadoop/conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./hadoop/conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+    depends_on:
+      namenode:
+        condition: service_healthy
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 5. Apache Hive - Metastore
+  # ==========================================
+  hive-metastore:
+    image: apache/hive:4.0.0
+    container_name: hive-metastore
+    user: root
+    environment:
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+      HIVE_CUSTOM_CONF_DIR: /opt/hive/custom_conf
+    ports:
+      - "9083:9083"
+    volumes:
+      - ./hive/conf/hive-site.xml:/opt/hive/custom_conf/hive-site.xml
+      - ./hadoop/conf/core-site.xml:/opt/hive/custom_conf/core-site.xml
+      - ./hadoop/conf/hdfs-site.xml:/opt/hive/custom_conf/hdfs-site.xml
+      - ./hive/lib/postgresql-42.7.3.jar:/opt/hive/lib/postgresql-42.7.3.jar
+    depends_on:
+      postgres:
+        condition: service_healthy
+      namenode:
+        condition: service_healthy
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 6. Apache Hive - HiveServer2
+  # ==========================================
+  hive-server:
+    image: apache/hive:4.0.0
+    container_name: hive-server
+    user: root
+    environment:
+      SERVICE_NAME: hiveserver2
+      IS_RESUME: "true"
+      DB_DRIVER: postgres
+      HIVE_CUSTOM_CONF_DIR: /opt/hive/custom_conf
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    volumes:
+      - ./hive/conf/hive-site.xml:/opt/hive/custom_conf/hive-site.xml
+      - ./hadoop/conf/core-site.xml:/opt/hive/custom_conf/core-site.xml
+      - ./hadoop/conf/hdfs-site.xml:/opt/hive/custom_conf/hdfs-site.xml
+      - ./hive/lib/postgresql-42.7.3.jar:/opt/hive/lib/postgresql-42.7.3.jar
+      - ./hive/sql:/opt/hive/sql
+    depends_on:
+      - hive-metastore
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 7. Apache Spark - Master
+  # ==========================================
+  spark-master:
+    image: apache/spark:3.5.1
+    container_name: spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 8. Apache Spark - Worker
+  # ==========================================
+  spark-worker:
+    image: apache/spark:3.5.1
+    container_name: spark-worker
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    ports:
+      - "8081:8081"
+    depends_on:
+      - spark-master
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 9. FastAPI Backend
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: neurostream-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./backend/app:/app/app
+      - ./producer:/app/producer
+      - ./spark/jobs:/app/spark/jobs
+      - ./ml:/app/ml
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    environment:
+      PYTHONPATH: /app
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      HIVE_HOST: hive-server
+      HIVE_PORT: 10000
+      HADOOP_NAMENODE_URL: hdfs://namenode:9000
+      SPARK_MASTER: spark://spark-master:7077
+      DATA_DIR: /app/data
+    depends_on:
+      kafka:
+        condition: service_healthy
+      namenode:
+        condition: service_healthy
+    networks:
+      - neurostream-network
+
+  # ==========================================
+  # 9. Frontend - React + Vite + Tailwind
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: neurostream-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - BACKEND_WS_URL=ws://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - neurostream-network
+
+volumes:
+  postgres_data:
+  kafka_data:
+  hadoop_namenode:
+  hadoop_datanode:
+
+networks:
+  neurostream-network:
+    driver: bridge

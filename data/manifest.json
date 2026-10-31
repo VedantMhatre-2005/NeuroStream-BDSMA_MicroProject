@@ -1,0 +1,78 @@
+{
+  "dataset": "EEGMMIDB",
+  "version": "1.0.0",
+  "files": {
+    "S001R04.edf": {
+      "participant": "S001",
+      "run": "R04",
+      "path": "/app/data/S001/S001R04.edf",
+      "size_bytes": 2596896,
+      "valid": true,
+      "updated_at": "2026-10-31 14:52:39"
+    },
+    "S001R08.edf": {
+      "participant": "S001",
+      "run": "R08",
+      "path": "/app/data/S001/S001R08.edf",
+      "size_bytes": 2596896,
+      "valid": true,
+      "updated_at": "2026-10-31 14:52:47"
+    },
+    "S001R12.edf": {
+      "participant": "S001",
+      "run": "R12",
+      "path": "/app/data/S001/S001R12.edf",
+      "size_bytes": 2596896,
+      "valid": true,
+      "updated_at": "2026-10-31 14:52:53"
+    },
+    "S002R04.edf": {
+      "participant": "S002",
+      "run": "R04",
+      "path": "/app/data/S002/S002R04.edf",
+      "size_bytes": 2555616,
+      "valid": true,
+      "updated_at": "2026-10-31 14:52:59"
+    },
+    "S002R08.edf": {
+      "participant": "S002",
+      "run": "R08",
+      "path": "/app/data/S002/S002R08.edf",
+      "size_bytes": 2555616,
+      "valid": true,
+      "updated_at": "2026-10-31 14:53:05"
+    },
+    "S002R12.edf": {
+      "participant": "S002",
+      "run": "R12",
+      "path": "/app/data/S002/S002R12.edf",
+      "size_bytes": 2555616,
+      "valid": true,
+      "updated_at": "2026-10-31 14:53:10"
+    },
+    "S003R04.edf": {
+      "participant": "S003",
+      "run": "R04",
+      "path": "/app/data/S003/S003R04.edf",
+      "size_bytes": 2596896,
+      "valid": true,
+      "updated_at": "2026-10-31 14:53:16"
+    },
+    "S003R08.edf": {
+      "participant": "S003",
+      "run": "R08",
+      "path": "/app/data/S003/S003R08.edf",
+      "size_bytes": 2596896,
+      "valid": true,
+      "updated_at": "2026-10-31 14:53:22"
+    },
+    "S003R12.edf": {
+      "participant": "S003",
+      "run": "R12",
+      "path": "/app/data/S003/S003R12.edf",
+      "size_bytes": 2596896,
+      "valid": true,
+      "updated_at": "2026-10-31 14:53:29"
+    }
+  }
+}
